@@ -1,53 +1,49 @@
 package com.mrbysco.expirationdates.handler;
 
-import com.mrbysco.expirationdates.config.ConfigHandler;
 import com.mrbysco.expirationdates.config.ExpirationConfig;
+import com.mrbysco.expirationdates.registry.ExpirationData;
+import com.mrbysco.expirationdates.registry.ExpirationDataComponents;
+import com.mrbysco.expirationdates.registry.ExpirationRegistry;
 import com.mrbysco.expirationdates.resources.ExpirationDate;
 import net.minecraft.ChatFormatting;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
-import static com.mrbysco.expirationdates.ExpirationDateMod.EXPIRATION_PROGRESS;
-import static com.mrbysco.expirationdates.ExpirationDateMod.EXPIRATION_TAG;
-import static com.mrbysco.expirationdates.ExpirationDateMod.EXPIRATION_TOTAL;
-
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public class ExpirationHandler {
 
 	@SubscribeEvent
-	public static void onItemTick(TickEvent.PlayerTickEvent event) {
-		Player player = event.player;
+	public static void onItemTick(PlayerTickEvent.Post event) {
+		Player player = event.getEntity();
 		Level level = player.level();
-		if (event.phase == TickEvent.Phase.END && !level.isClientSide &&
-				level.getGameTime() % 20 == 0 && !event.player.getAbilities().instabuild) {
+		if (!level.isClientSide &&
+				level.getGameTime() % 20 == 0 && !player.getAbilities().instabuild) {
 			Inventory inventory = player.getInventory();
 			for (int i = 0; i < inventory.getContainerSize(); i++) {
 				ItemStack stack = inventory.getItem(i);
 				if (stack.isEmpty()) continue;
 
-				ExpirationDate expirationData = ConfigHandler.getExpirationDataForItem(stack);
+				ExpirationDate expirationData = ExpirationRegistry.getExpirationDataForItem(stack);
 				if (expirationData == null) continue;
 
-				CompoundTag tag = stack.hasTag() ? stack.getTag() : new CompoundTag();
-				assert tag != null;
-
-				if (!tag.contains(EXPIRATION_TAG)) {
+				ExpirationData expiration = stack.get(ExpirationDataComponents.EXPIRATION_DATA);
+				if (expiration == null) {
 					// Initialize expiration data
-					tag.putLong(EXPIRATION_TAG, level.getGameTime() + expirationData.expirationTime());
-					tag.putLong(EXPIRATION_PROGRESS, 0L);
-					tag.putLong(EXPIRATION_TOTAL, expirationData.expirationTime());
-					stack.setTag(tag);
+					stack.set(ExpirationDataComponents.EXPIRATION_DATA, new ExpirationData(
+							level.getGameTime() + expirationData.expirationTime(),
+							0L,
+							expirationData.expirationTime()
+					));
 				} else {
 					// Update expiration progress
-					long expirationTime = tag.getLong(EXPIRATION_TAG);
-					long totalTime = tag.getLong(EXPIRATION_TOTAL);
+					long expirationTime = expiration.expirationDate();
+					long totalTime = expiration.total();
 
 					if (level.getGameTime() >= expirationTime) {
 						if (ExpirationConfig.COMMON.announceInChat.get()) {
@@ -65,7 +61,11 @@ public class ExpirationHandler {
 						}
 					} else {
 						int progress = (int) (expirationTime - level.getGameTime());
-						tag.putLong(EXPIRATION_PROGRESS, totalTime - progress);
+						stack.set(ExpirationDataComponents.EXPIRATION_DATA, new ExpirationData(
+								expirationTime,
+								totalTime - progress,
+								totalTime
+						));
 					}
 				}
 			}

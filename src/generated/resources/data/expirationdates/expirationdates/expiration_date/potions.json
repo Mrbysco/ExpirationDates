@@ -1,0 +1,20 @@
+{
+  "expirationTime": 36000,
+  "items": [
+    [
+      {
+        "item": "minecraft:potion"
+      },
+      {
+        "item": "minecraft:lingering_potion"
+      },
+      {
+        "item": "minecraft:splash_potion"
+      }
+    ]
+  ],
+  "result": {
+    "count": 1,
+    "id": "minecraft:glass_bottle"
+  }
+}

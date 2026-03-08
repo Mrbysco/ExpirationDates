@@ -1,24 +1,35 @@
 package com.mrbysco.expirationdates.resources;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonDeserializer;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonSerializationContext;
-import com.google.gson.JsonSerializer;
-import net.minecraft.core.NonNullList;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.util.GsonHelper;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.mrbysco.expirationdates.ExpirationDateMod;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.neoforged.neoforge.common.conditions.ConditionalOps;
+import net.neoforged.neoforge.common.conditions.WithConditions;
 
-import java.lang.reflect.Type;
 import java.util.List;
+import java.util.Optional;
 
 public class ExpirationDate {
+	public static final ResourceKey<Registry<ExpirationDate>> REGISTRY_KEY = ResourceKey.createRegistryKey(
+			ExpirationDateMod.modLoc("expiration_date"));
+
+	public static final Codec<ExpirationDate> DIRECT_CODEC = ExtraCodecs.catchDecoderException(
+			RecordCodecBuilder.create(
+					instance -> instance.group(
+							Ingredient.CODEC.listOf().fieldOf("items").forGetter(ExpirationDate::items),
+							Codec.LONG.fieldOf("expirationTime").forGetter(ExpirationDate::expirationTime),
+							ItemStack.CODEC.optionalFieldOf("result", ItemStack.EMPTY).forGetter(ExpirationDate::result)
+					).apply(instance, ExpirationDate::new)
+			)
+	);
+
+	public static final Codec<Optional<WithConditions<ExpirationDate>>> CONDITIONAL_CODEC = ConditionalOps.createConditionalCodecWithConditions(DIRECT_CODEC);
+
 	protected final List<Ingredient> items;
 	protected final long expirationTime;
 	protected final ItemStack result;
@@ -58,63 +69,5 @@ public class ExpirationDate {
 		int result = items.hashCode();
 		result = 31 * result + Long.hashCode(expirationTime);
 		return result;
-	}
-
-	public static class DateSerializer implements JsonSerializer<ExpirationDate>, JsonDeserializer<ExpirationDate> {
-
-		@Override
-		public JsonElement serialize(ExpirationDate expirationDate, Type type, JsonSerializationContext serializationContext) {
-			JsonObject json = new JsonObject();
-
-			JsonArray jsonarray = new JsonArray();
-
-			for (Ingredient ingredient : expirationDate.items) {
-				jsonarray.add(ingredient.toJson());
-			}
-
-			json.add("items", jsonarray);
-			json.addProperty("expirationTime", expirationDate.expirationTime);
-
-			if (!expirationDate.result.isEmpty()) {
-				ItemStack result = expirationDate.result;
-				JsonObject itemObject = new JsonObject();
-				itemObject.addProperty("item", BuiltInRegistries.ITEM.getKey(result.getItem()).toString());
-				if (result.getCount() > 1) {
-					itemObject.addProperty("count", result.getCount());
-				}
-
-				json.add("result", itemObject);
-			}
-
-			return json;
-		}
-
-		@Override
-		public ExpirationDate deserialize(JsonElement jsonElement, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
-			final JsonObject json = jsonElement.getAsJsonObject();
-
-			NonNullList<Ingredient> nonnulllist = itemsFromJson(GsonHelper.getAsJsonArray(json, "items"));
-			long expirationTime = GsonHelper.getAsLong(json, "expirationTime");
-
-			ItemStack result = ItemStack.EMPTY;
-			if (json.has("result")) {
-				result = ShapedRecipe.itemStackFromJson(GsonHelper.getAsJsonObject(json, "result"));
-			}
-
-			return new ExpirationDate(nonnulllist, expirationTime, result);
-		}
-
-		private static NonNullList<Ingredient> itemsFromJson(JsonArray ingredientArray) {
-			NonNullList<Ingredient> nonnulllist = NonNullList.create();
-
-			for (int i = 0; i < ingredientArray.size(); ++i) {
-				Ingredient ingredient = Ingredient.fromJson(ingredientArray.get(i), false);
-				if (true || !ingredient.isEmpty()) { // FORGE: Skip checking if an ingredient is empty during shapeless recipe deserialization to prevent complex ingredients from caching tags too early. Can not be done using a config value due to sync issues.
-					nonnulllist.add(ingredient);
-				}
-			}
-
-			return nonnulllist;
-		}
 	}
 }
