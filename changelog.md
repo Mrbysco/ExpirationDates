@@ -1,1 +1,1 @@
-* Initial version
+* Fix tooltip not rendering correctly
