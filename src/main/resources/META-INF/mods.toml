@@ -1,0 +1,27 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+issueTrackerURL="https://github.com/Mrbysco/ExpirationDates/issues"
+license="MIT"
+
+[[mods]]
+modId="expirationdates"
+version="${file.jarVersion}"
+displayName="Expiration Dates"
+displayURL="https://www.curseforge.com/minecraft/mc-mods/expiration-dates"
+authors="Mrbysco"
+credits="Nekomaster for the idea"
+description='''
+Allows you to set expiration dates on items
+'''
+[[dependencies.expirationdates]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20,1.21)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.expirationdates]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
